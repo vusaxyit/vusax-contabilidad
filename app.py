@@ -201,7 +201,10 @@ def pagina_productos():
             st.success(f"Producto {sku} guardado.")
             st.rerun()
     df = leer("Productos")
-    st.dataframe(df, use_container_width=True) if not df.empty else st.info("Sin productos todavia.")
+    if not df.empty:
+        st.dataframe(df, use_container_width=True)
+    else:
+        st.info("Sin productos todavia.")
 
 def pagina_ingresos():
     st.header("Ingresos multicanal")
@@ -227,7 +230,10 @@ def pagina_ingresos():
             st.success("Venta registrada. COGS y margen calculados.")
             st.rerun()
     df = calcular_ingresos(leer("Ingresos"), prod)
-    st.dataframe(df, use_container_width=True) if not df.empty else st.info("Sin ventas todavia.")
+    if not df.empty:
+        st.dataframe(df, use_container_width=True)
+    else:
+        st.info("Sin ventas todavia.")
 
 def pagina_gastos():
     st.header("Gastos operativos")
@@ -247,7 +253,10 @@ def pagina_gastos():
             st.success("Gasto registrado.")
             st.rerun()
     df = leer("Gastos")
-    st.dataframe(df, use_container_width=True) if not df.empty else st.info("Sin gastos todavia.")
+    if not df.empty:
+        st.dataframe(df, use_container_width=True)
+    else:
+        st.info("Sin gastos todavia.")
 
 def pagina_facturas():
     st.header("Facturas")
