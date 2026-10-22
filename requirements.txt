@@ -1,5 +1,7 @@
-streamlit
-pandas
-plotly
-gspread
-google-auth
+streamlit>=1.50
+pandas>=2.2
+plotly>=5.22
+gspread>=6.0
+google-auth>=2.30
+openpyxl>=3.1
+fpdf2>=2.8
