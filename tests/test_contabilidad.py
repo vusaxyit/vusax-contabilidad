@@ -80,12 +80,12 @@ def test_cuentas_por_cobrar_y_pagar():
     ar = ledger.cuentas_por_cobrar(d, pd.Timestamp("2026-02-20"))
     assert ar.loc[0, "total"] == pytest.approx(42.6)
     assert ar.loc[0, "saldo"] == pytest.approx(0.0)
-    assert ar.loc[0, "estado"] == "Pagada"
+    assert ar.loc[0, "estado"] == "Paid"
     ar_antes = ledger.cuentas_por_cobrar(d, pd.Timestamp("2026-01-20"))
     assert ar_antes.loc[0, "saldo"] == pytest.approx(42.6)
     ap = ledger.cuentas_por_pagar(d, pd.Timestamp("2026-02-20"))
     assert ap.loc[0, "saldo"] == pytest.approx(70.0)
-    assert ap.loc[0, "estado"] == "Vencida"  # vence 2026-02-04
+    assert ap.loc[0, "estado"] == "Overdue"  # vence 2026-02-04
     ag = reports.antiguedad(ap, "proveedor")
     assert ag.loc[ag["proveedor"] == "TOTAL", "Total"].iloc[0] == pytest.approx(70.0)
 
@@ -158,8 +158,8 @@ def test_revision_detecta_problemas():
     raw["Transacciones"] = raw["Transacciones"][raw["Transacciones"]["aplica_tipo"] != "FAC"]
     d, cfg, j, inv, ev, coa = armar(raw)
     msgs = " | ".join(m for _, m in reports.revision_datos(d, j, coa, inv, pd.Timestamp("2026-12-31")))
-    assert "sin fecha" in msgs
-    assert "marcadas Pagada" in msgs
+    assert "no valid date" in msgs
+    assert "marked Paid" in msgs
 
 
 def test_asiento_manual_descuadrado_se_reporta():
@@ -169,7 +169,7 @@ def test_asiento_manual_descuadrado_se_reporta():
     raw["Asientos"] = pd.DataFrame([fila])
     d, cfg, j, inv, ev, coa = armar(raw)
     msgs = " | ".join(m for _, m in reports.revision_datos(d, j, coa, inv, pd.Timestamp("2026-12-31")))
-    assert "descuadrados" in msgs
+    assert "unbalanced" in msgs
 
 
 def test_libro_mayor_saldo_corrido():

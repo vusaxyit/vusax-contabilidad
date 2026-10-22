@@ -26,7 +26,10 @@ CODIGOS = {
     "Bill_Items": ["cuenta"], "Transacciones": ["cuenta", "contrapartida"], "Asientos": ["cuenta"],
     "Conciliaciones": ["cuenta"], "Reglas": ["cuenta"],
 }
-ESTADOS_EMITIDA = {"enviada", "enviado", "pagada", "pagado", "emitida"}
+# Estados que hacen que una factura entre al libro. Se aceptan los valores en español
+# porque las facturas cargadas con la version anterior los traen asi.
+ESTADOS_EMITIDA = {"sent", "paid", "issued", "enviada", "enviado", "pagada", "pagado", "emitida"}
+ESTADOS_PAGADA = {"paid", "pagada", "pagado"}
 
 
 # ───────────────────────────── Conversion de datos crudos ─────────────────────────────
@@ -204,12 +207,12 @@ def construir_diario(d: dict[str, pd.DataFrame], cfg: dict[str, str]):
         bruto, com, tar, env = (round(x, 2) for x in (r.ingreso_bruto, r.comisiones, r.tarifas, r.envio))
         impuesto = 0.0 if es_marketplace(r.canal) else round(r.impuesto_cobrado, 2)
         memo = f"{r.canal} {r.id_orden}".strip()
-        L(ref, "Venta", r.fecha, cobro, deb=bruto - com - tar - env + impuesto, memo=memo)
-        L(ref, "Venta", r.fecha, "6010", deb=com, memo=memo)
-        L(ref, "Venta", r.fecha, "6020", deb=tar, memo=memo)
-        L(ref, "Venta", r.fecha, "6030", deb=env, memo=memo)
-        L(ref, "Venta", r.fecha, ventas, cred=bruto, memo=memo)
-        L(ref, "Venta", r.fecha, CUENTA_IMPUESTO, cred=impuesto, memo=memo)
+        L(ref, "Sale", r.fecha, cobro, deb=bruto - com - tar - env + impuesto, memo=memo)
+        L(ref, "Sale", r.fecha, "6010", deb=com, memo=memo)
+        L(ref, "Sale", r.fecha, "6020", deb=tar, memo=memo)
+        L(ref, "Sale", r.fecha, "6030", deb=env, memo=memo)
+        L(ref, "Sale", r.fecha, ventas, cred=bruto, memo=memo)
+        L(ref, "Sale", r.fecha, CUENTA_IMPUESTO, cred=impuesto, memo=memo)
         evento("venta", r.fecha, r.sku, r.cantidad, ref=ref, ingreso=bruto, canal=str(r.canal),
                cargos=com + tar + env)
 
@@ -219,10 +222,11 @@ def construir_diario(d: dict[str, pd.DataFrame], cfg: dict[str, str]):
             continue
         ref = f"GAS:{r.id}"
         gasto = r.cuenta_gasto or mapear_categoria(r.categoria)
-        pago = r.cuenta_pago or (CUENTA_TARJETA if str(r.metodo).strip().lower().startswith("tarjeta") else banco)
+        # "tarjeta" sigue aceptandose: es lo que escribio la version en español.
+        pago = r.cuenta_pago or (CUENTA_TARJETA if str(r.metodo).strip().lower().startswith(("tarjeta", "card", "credit")) else banco)
         monto = round(r.monto, 2)
-        L(ref, "Gasto", r.fecha, gasto, deb=monto, memo=r.descripcion or r.categoria, tercero=r.proveedor)
-        L(ref, "Gasto", r.fecha, pago, cred=monto, memo=r.descripcion or r.categoria, tercero=r.proveedor)
+        L(ref, "Expense", r.fecha, gasto, deb=monto, memo=r.descripcion or r.categoria, tercero=r.proveedor)
+        L(ref, "Expense", r.fecha, pago, cred=monto, memo=r.descripcion or r.categoria, tercero=r.proveedor)
 
     # Facturas de venta emitidas
     items = d["Invoice_Items"].copy()
@@ -236,11 +240,11 @@ def construir_diario(d: dict[str, pd.DataFrame], cfg: dict[str, str]):
             continue
         ref = f"FAC:{r.num}"
         sub, imp = round(g["monto"].sum(), 2), round(r.impuesto, 2)
-        L(ref, "Factura", r.fecha, CUENTA_AR, deb=sub + imp, memo=r.num, tercero=r.cliente)
-        L(ref, "Factura", r.fecha, CUENTA_VENTAS_B2B, cred=sub, memo=r.num, tercero=r.cliente)
-        L(ref, "Factura", r.fecha, CUENTA_IMPUESTO, cred=imp, memo=r.num, tercero=r.cliente)
+        L(ref, "Invoice", r.fecha, CUENTA_AR, deb=sub + imp, memo=r.num, tercero=r.cliente)
+        L(ref, "Invoice", r.fecha, CUENTA_VENTAS_B2B, cred=sub, memo=r.num, tercero=r.cliente)
+        L(ref, "Invoice", r.fecha, CUENTA_IMPUESTO, cred=imp, memo=r.num, tercero=r.cliente)
         for it in g.itertuples():
-            evento("venta", r.fecha, it.sku, it.cantidad, ref=ref, ingreso=it.monto, canal="Facturas B2B")
+            evento("venta", r.fecha, it.sku, it.cantidad, ref=ref, ingreso=it.monto, canal="B2B Invoices")
 
     # Facturas de proveedor
     bi = d["Bill_Items"].copy()
@@ -256,12 +260,12 @@ def construir_diario(d: dict[str, pd.DataFrame], cfg: dict[str, str]):
         memo = f"{r.proveedor} {r.num}".strip()
         for it in g.itertuples():
             if str(it.sku).strip():
-                L(ref, "Compra", r.fecha, CUENTA_INV, deb=it.monto, memo=memo, tercero=r.proveedor)
+                L(ref, "Purchase", r.fecha, CUENTA_INV, deb=it.monto, memo=memo, tercero=r.proveedor)
                 evento("compra", r.fecha, it.sku, it.cantidad, costo=it.costo_unit, ref=ref)
             else:
-                L(ref, "Compra", r.fecha, it.cuenta or CUENTA_GASTO_DEFECTO, deb=it.monto, memo=it.descripcion or memo,
+                L(ref, "Purchase", r.fecha, it.cuenta or CUENTA_GASTO_DEFECTO, deb=it.monto, memo=it.descripcion or memo,
                   tercero=r.proveedor)
-        L(ref, "Compra", r.fecha, CUENTA_AP, cred=round(g["monto"].sum(), 2), memo=memo, tercero=r.proveedor)
+        L(ref, "Purchase", r.fecha, CUENTA_AP, cred=round(g["monto"].sum(), 2), memo=memo, tercero=r.proveedor)
 
     # Registro bancario
     for r in d["Transacciones"].itertuples():
@@ -270,8 +274,8 @@ def construir_diario(d: dict[str, pd.DataFrame], cfg: dict[str, str]):
         ref = f"TRX:{r.id}"
         contra = r.contrapartida or CUENTA_SUSPENSO
         m = round(r.monto, 2)
-        L(ref, "Banco", r.fecha, r.cuenta, deb=m, memo=r.descripcion, tercero=r.tercero)
-        L(ref, "Banco", r.fecha, contra, cred=m, memo=r.descripcion, tercero=r.tercero)
+        L(ref, "Bank", r.fecha, r.cuenta, deb=m, memo=r.descripcion, tercero=r.tercero)
+        L(ref, "Bank", r.fecha, contra, cred=m, memo=r.descripcion, tercero=r.tercero)
 
     # Ajustes de inventario
     for r in d["Ajustes_Inv"].itertuples():
@@ -283,7 +287,7 @@ def construir_diario(d: dict[str, pd.DataFrame], cfg: dict[str, str]):
     for r in d["Asientos"].itertuples():
         if r.anulado or pd.isna(r.fecha):
             continue
-        L(f"ASI:{r.asiento}", "Asiento manual", r.fecha, r.cuenta, deb=r.debito, cred=r.credito, memo=r.memo)
+        L(f"ASI:{r.asiento}", "Manual Entry", r.fecha, r.cuenta, deb=r.debito, cred=r.credito, memo=r.memo)
 
     # Costos de inventario
     inicio = pd.Timestamp(cfg.get("inventario_inicio") or "2000-01-01")
@@ -295,14 +299,14 @@ def construir_diario(d: dict[str, pd.DataFrame], cfg: dict[str, str]):
         if e["fecha"] < inicio:
             neto_previo += v if e["tipo"] in ("compra", "ajuste") else -v
         if e["tipo"] == "venta":
-            L(e["ref"], "Costo", e["fecha"], CUENTA_COGS, deb=v, memo=e["sku"])
-            L(e["ref"], "Costo", e["fecha"], CUENTA_INV, cred=v, memo=e["sku"])
+            L(e["ref"], "Cost", e["fecha"], CUENTA_COGS, deb=v, memo=e["sku"])
+            L(e["ref"], "Cost", e["fecha"], CUENTA_INV, cred=v, memo=e["sku"])
         elif e["tipo"] == "ajuste":
-            L(e["ref"], "Ajuste", e["fecha"], CUENTA_MERMA, deb=-v, memo=e["sku"])
-            L(e["ref"], "Ajuste", e["fecha"], CUENTA_INV, deb=v, memo=e["sku"])
+            L(e["ref"], "Adjustment", e["fecha"], CUENTA_MERMA, deb=-v, memo=e["sku"])
+            L(e["ref"], "Adjustment", e["fecha"], CUENTA_INV, deb=v, memo=e["sku"])
     plug = round(apertura - neto_previo, 2)
-    L("INV:APERTURA", "Apertura", inicio, CUENTA_INV, deb=plug, memo="Existencias iniciales")
-    L("INV:APERTURA", "Apertura", inicio, CUENTA_APERTURA, cred=plug, memo="Existencias iniciales")
+    L("INV:APERTURA", "Opening", inicio, CUENTA_INV, deb=plug, memo="Opening inventory")
+    L("INV:APERTURA", "Opening", inicio, CUENTA_APERTURA, cred=plug, memo="Opening inventory")
 
     diario = pd.DataFrame(filas, columns=COLUMNAS_DIARIO)
     diario["fecha"] = pd.to_datetime(diario["fecha"])
@@ -315,7 +319,7 @@ def construir_diario(d: dict[str, pd.DataFrame], cfg: dict[str, str]):
     for sku, s in est.items():
         info = nombres.get(sku, {})
         filas_inv.append({
-            "sku": sku, "nombre": info.get("nombre", "(no esta en Productos)"),
+            "sku": sku, "nombre": info.get("nombre", "(not in Products)"),
             "categoria": info.get("categoria", ""), "precio": info.get("precio", 0.0),
             "stock_min": info.get("stock_min", 0.0), "activo": info.get("activo", ""),
             "apertura_qty": s["q0"], "apertura_costo": s["c0"], "existencias": round(s["qty"], 4),
@@ -331,10 +335,10 @@ def construir_diario(d: dict[str, pd.DataFrame], cfg: dict[str, str]):
 def _estado_doc(total, pagado, vence, al):
     saldo = round(total - pagado, 2)
     if saldo <= 0.005:
-        return "Pagada"
+        return "Paid"
     if pd.notna(vence) and vence < al:
-        return "Vencida"
-    return "Parcial" if pagado > 0.005 else "Abierta"
+        return "Overdue"
+    return "Partial" if pagado > 0.005 else "Open"
 
 
 def cuentas_por_cobrar(d: dict[str, pd.DataFrame], al: pd.Timestamp) -> pd.DataFrame:

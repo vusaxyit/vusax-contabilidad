@@ -2,12 +2,17 @@
 
 Contabilidad de partida doble sobre Google Sheets, con interfaz en Streamlit.
 
+**La interfaz está en inglés**: pantallas, reportes, plan de cuentas y el PDF de factura, con la
+nomenclatura de QuickBooks Online, que es la que espera un CPA en Estados Unidos. Lo que sigue en
+español es la base de datos (los nombres de las hojas y de las columnas en Google Sheets) y los
+comentarios del código; nada de eso se ve al usar la app.
+
 ## Qué incluye
 
 | Área | Funciones |
 |---|---|
 | Panel | Ingresos, utilidad, efectivo, por cobrar y por pagar, comparación con el periodo anterior, alertas |
-| Ventas | Facturas con varias líneas, impuesto de ventas, clientes exentos por reventa, cobros parciales, PDF, ventas de marketplace con importación CSV |
+| Ventas | Facturas con varias líneas, impuesto de ventas, clientes exentos por reventa, cobros parciales, PDF con el logo de la empresa, ventas de marketplace con importación CSV |
 | Gastos y compras | Gastos por cuenta, facturas de proveedores con pagos parciales, compras que entran al inventario |
 | Banco | Movimientos, aportes y retiros de socios, transferencias, importación de extractos CSV con reglas, conciliación |
 | Inventario | Costo promedio ponderado, existencias, mínimos, valuación, ajustes de merma |
@@ -33,11 +38,21 @@ Separación entre negocio y finanzas personales: los aportes y retiros de socios
 4. Entra, abre Contabilidad > Revisión de datos y corrige lo que aparezca.
 5. Carga los saldos iniciales de bancos y tarjetas con un asiento manual (débito a la cuenta bancaria, crédito a "Saldos iniciales de apertura").
 
+## El logo en las facturas
+
+El PDF de factura dibuja `vusax/assets/logo.png` arriba a la izquierda, a 25 mm de ancho, con el
+nombre y la dirección de la empresa al lado. Para cambiar el logo basta con reemplazar ese archivo:
+conviene un PNG cuadrado de unos 600 px. Si el archivo no está, la factura sale con el nombre de la
+empresa en texto, como antes.
+
 ## Roles
 
 - admin: todo, incluidos Ajustes y usuarios.
-- contador: registra y consulta.
-- lectura: solo consulta. Es el rol de los usuarios nuevos; el primero que se registra queda como admin.
+- accountant: registra y consulta.
+- read: solo consulta. Es el rol de los usuarios nuevos; el primero que se registra queda como admin.
+
+Los usuarios creados con la versión en español (roles `contador` y `lectura`) se traducen solos al
+iniciar sesión; no hay que tocar la hoja `Usuarios`.
 
 ## Seguridad
 

@@ -248,7 +248,7 @@ def _migrar(b) -> None:
                               for c, n, t, s in PLAN_CUENTAS])
 
 
-@st.cache_resource(show_spinner="Conectando con la base de datos...")
+@st.cache_resource(show_spinner="Connecting to the database...")
 def backend():
     if modo_demo():
         b = MemoryBackend(datos_demo_crudos())
@@ -266,7 +266,7 @@ def _crudo() -> dict[str, pd.DataFrame]:
     return {n: _a_df(v) for n, v in backend().leer_todo(HOJAS_DATOS).items()}
 
 
-@st.cache_data(ttl=45, show_spinner="Calculando libro contable...")
+@st.cache_data(ttl=45, show_spinner="Building the books...")
 def libro() -> dict:
     d = ledger.preparar(_crudo())
     cfg = ledger.leer_config(d["Config"])
@@ -295,7 +295,7 @@ def usuario() -> dict:
 
 
 def puede_escribir() -> bool:
-    return usuario().get("rol") in ("contador", "admin")
+    return usuario().get("rol") in ("accountant", "admin")
 
 
 def es_admin() -> bool:
@@ -304,7 +304,7 @@ def es_admin() -> bool:
 
 def _exigir_escritura(forzar: bool):
     if not forzar and not puede_escribir():
-        raise PermisoError("Tu rol es de solo lectura. Pide a un administrador que te cambie a 'contador'.")
+        raise PermisoError("Your role is read-only. Ask an administrator to change it to 'accountant'.")
 
 
 def _plano(v):
@@ -329,8 +329,8 @@ def _validar_cierre(hoja: str, fechas: list) -> None:
     for f in fechas:
         t = pd.to_datetime(f, errors="coerce")
         if pd.notna(t) and t <= limite:
-            raise ValueError(f"El periodo hasta {limite:%Y-%m-%d} está cerrado. "
-                             "Un administrador puede cambiar la fecha de cierre en Ajustes.")
+            raise ValueError(f"The period through {limite:%Y-%m-%d} is closed. "
+                             "An administrator can change the closing date in Settings.")
 
 
 def auditar(accion: str, hoja: str, clave: str = "", detalle: str = "") -> None:
@@ -376,7 +376,7 @@ def modificar(hoja: str, valor, cambios: dict, *, col: str | None = None, forzar
         _validar_cierre(hoja, previas + [cambios.get("fecha")])
     n = backend().actualizar(hoja, col, valor, cambios)
     if n == 0:
-        raise KeyError(f"No se encontró {valor} en {hoja}.")
+        raise KeyError(f"{valor} was not found in {hoja}.")
     auditar(accion, hoja, str(valor), detalle or ", ".join(cambios))
     refrescar()
     return n
@@ -412,7 +412,7 @@ def eliminar(hoja: str, col: str, valor) -> int:
 
 def guardar_config(valores: dict[str, str]) -> None:
     if not es_admin():
-        raise PermisoError("Solo un administrador puede cambiar la configuración.")
+        raise PermisoError("Only an administrator can change the settings.")
     actuales = set(libro()["d"]["Config"]["clave"])
     nuevos = []
     for k, v in valores.items():

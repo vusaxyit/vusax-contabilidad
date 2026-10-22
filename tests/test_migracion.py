@@ -101,26 +101,26 @@ def test_bloqueo_tras_intentos(legado):
     for _ in range(auth.MAX_INTENTOS):
         assert auth.verificar_login("yit", "mala")[0] is None
     user, err = auth.verificar_login("yit", "clave-vieja")
-    assert user is None and "Demasiados" in err
+    assert user is None and "Too many attempts" in err
     auth._intentos().clear()
 
 
 def test_permisos_cierre_y_auditoria(legado):
-    st.session_state["user"] = {"codigo": "lec", "nombre": "L", "rol": "lectura"}
+    st.session_state["user"] = {"codigo": "lec", "nombre": "L", "rol": "read"}
     with pytest.raises(db.PermisoError):
         db.guardar("Gastos", {"fecha": date.today(), "categoria": "x", "monto": 1})
-    st.session_state["user"] = {"codigo": "con", "nombre": "C", "rol": "contador"}
+    st.session_state["user"] = {"codigo": "con", "nombre": "C", "rol": "accountant"}
     ids = db.guardar("Gastos", {"fecha": "2026-09-10", "categoria": "Software", "monto": 30, "metodo": "Tarjeta"})
     assert ids[0].startswith("GAS-")
     st.session_state["user"] = {"codigo": "adm", "nombre": "A", "rol": "admin"}
     db.guardar_config({"fecha_cierre": "2026-09-30"})
-    with pytest.raises(ValueError, match="cerrado"):
+    with pytest.raises(ValueError, match="is closed"):
         db.guardar("Gastos", {"fecha": "2026-09-15", "categoria": "x", "monto": 1})
-    with pytest.raises(ValueError, match="cerrado"):
+    with pytest.raises(ValueError, match="is closed"):
         db.anular("Gastos", ids[0])  # tampoco se pueden anular registros de periodos cerrados
     db.guardar("Gastos", {"fecha": "2026-10-02", "categoria": "x", "monto": 1})
     with pytest.raises(db.PermisoError):
-        st.session_state["user"] = {"codigo": "con", "nombre": "C", "rol": "contador"}
+        st.session_state["user"] = {"codigo": "con", "nombre": "C", "rol": "accountant"}
         db.guardar_config({"empresa": "Otra"})
     acciones = [r[2] for r in legado.t["Auditoria"][1:]]
     assert "crear" in acciones and "config" in acciones
@@ -137,7 +137,7 @@ def test_flujo_factura_cobro_y_anulacion(legado):
     ar = ledger.cuentas_por_cobrar(db.libro()["d"], pd.Timestamp("2026-10-10")).set_index("num")
     assert ar.loc["INV-1002", "total"] == pytest.approx(106.5)
     assert ar.loc["INV-1002", "saldo"] == pytest.approx(56.5)
-    assert ar.loc["INV-1002", "estado"] == "Parcial"
+    assert ar.loc["INV-1002", "estado"] == "Partial"
     # reemplazar lineas de un borrador
     db.reemplazar("Invoice_Items", "num", "INV-1002", [{"num": "INV-1002", "sku": "P1", "descripcion": "Perfume", "cantidad": 1, "precio_unit": 25}])
     assert len(db.libro()["d"]["Invoice_Items"][lambda x: x["num"] == "INV-1002"]) == 1
