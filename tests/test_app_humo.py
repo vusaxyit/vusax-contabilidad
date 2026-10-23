@@ -21,7 +21,7 @@ def test_login_incorrecto():
     at.text_input[1].set_value("mala")
     at.button[0].click()
     at.run()
-    assert any("incorrectos" in e.value for e in at.error)
+    assert any("Incorrect" in e.value for e in at.error)
 
 
 def test_login_correcto_y_panel():
@@ -67,10 +67,10 @@ def test_registrar_gasto_desde_el_formulario():
     from vusax import db
     antes = len(db.libro()["d"]["Gastos"])
     at = AppTest.from_function(_pantalla, args=("gastos",), default_timeout=90).run()
-    monto = next(w for w in at.number_input if w.label == "Monto")
+    monto = next(w for w in at.number_input if w.label == "Amount")
     monto.set_value(42.5)
-    next(w for w in at.text_input if w.label == "Proveedor").set_value("Prueba SA")
-    next(b for b in at.button if b.label == "Registrar gasto").click()
+    next(w for w in at.text_input if w.label == "Vendor").set_value("Prueba SA")
+    next(b for b in at.button if b.label == "Record expense").click()
     at.run()
     assert not at.exception, [e.value for e in at.exception]
     g = db.libro()["d"]["Gastos"]
@@ -82,5 +82,5 @@ def test_solo_lectura_no_puede_guardar():
     from vusax import db
     antes = len(db.libro()["d"]["Gastos"])
     at = AppTest.from_function(_pantalla, args=("gastos", "lectura"), default_timeout=90).run()
-    assert not [b for b in at.button if b.label == "Registrar gasto"]
+    assert not [b for b in at.button if b.label == "Record expense"]
     assert len(db.libro()["d"]["Gastos"]) == antes

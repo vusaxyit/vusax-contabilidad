@@ -25,7 +25,7 @@ def flash() -> None:
         st.success(msg)
 
 
-def intentar(fn, *args, ok: str = "Guardado.", **kwargs):
+def intentar(fn, *args, ok: str = "Saved.", **kwargs):
     """Ejecuta una escritura y muestra el error en pantalla si falla. Devuelve True si salio bien."""
     try:
         fn(*args, **kwargs)
@@ -33,7 +33,7 @@ def intentar(fn, *args, ok: str = "Guardado.", **kwargs):
         st.error(str(e).strip("'\""))
         return False
     except Exception as e:  # red, cuota de Google, etc.
-        st.error(f"No se pudo completar la operación: {e}")
+        st.error(f"The operation could not be completed: {e}")
         return False
     st.session_state["_flash"] = ok
     return True
@@ -43,7 +43,7 @@ def solo_lectura() -> bool:
     """True (y avisa) si el usuario no puede escribir."""
     if db.puede_escribir():
         return False
-    st.info("Tu rol es de solo lectura: puedes consultar todo, pero no registrar ni cambiar datos.")
+    st.info("Your role is read-only: you can see everything, but not record or change data.")
     return True
 
 
@@ -61,46 +61,69 @@ def cuentas_opciones(coa: pd.DataFrame, tipos=None, subtipos=None, solo_activas=
 def selector_cuenta(etiqueta: str, opciones: dict[str, str], key: str, defecto: str | None = None) -> str:
     claves = list(opciones)
     if not claves:
-        st.warning(f"No hay cuentas disponibles para '{etiqueta}'. Revisa el plan de cuentas.")
+        st.warning(f"No accounts available for '{etiqueta}'. Check the chart of accounts.")
         return ""
     idx = claves.index(defecto) if defecto in claves else 0
     return st.selectbox(etiqueta, claves, index=idx, format_func=lambda k: opciones[k], key=key)
 
 
-def periodo(key: str, defecto: str = "Este año") -> tuple[pd.Timestamp, pd.Timestamp]:
+def periodo(key: str, defecto: str = "This year") -> tuple[pd.Timestamp, pd.Timestamp]:
     hoy = date.today()
     inicio_mes = hoy.replace(day=1)
     trimestre = hoy.replace(month=3 * ((hoy.month - 1) // 3) + 1, day=1)
     opciones = {
-        "Este mes": (inicio_mes, hoy),
-        "Mes pasado": ((inicio_mes - timedelta(days=1)).replace(day=1), inicio_mes - timedelta(days=1)),
-        "Este trimestre": (trimestre, hoy),
-        "Este año": (hoy.replace(month=1, day=1), hoy),
-        "Año pasado": (date(hoy.year - 1, 1, 1), date(hoy.year - 1, 12, 31)),
-        "Últimos 12 meses": (hoy - timedelta(days=365), hoy),
-        "Personalizado": (hoy.replace(month=1, day=1), hoy),
+        "This month": (inicio_mes, hoy),
+        "Last month": ((inicio_mes - timedelta(days=1)).replace(day=1), inicio_mes - timedelta(days=1)),
+        "This quarter": (trimestre, hoy),
+        "This year": (hoy.replace(month=1, day=1), hoy),
+        "Last year": (date(hoy.year - 1, 1, 1), date(hoy.year - 1, 12, 31)),
+        "Last 12 months": (hoy - timedelta(days=365), hoy),
+        "Custom": (hoy.replace(month=1, day=1), hoy),
     }
     nombres = list(opciones)
     c1, c2, c3 = st.columns([2, 2, 2])
-    sel = c1.selectbox("Periodo", nombres, index=nombres.index(defecto), key=f"{key}_p")
+    sel = c1.selectbox("Period", nombres, index=nombres.index(defecto), key=f"{key}_p")
     d0, d1 = opciones[sel]
-    if sel == "Personalizado":
-        d0 = c2.date_input("Desde", d0, key=f"{key}_d")
-        d1 = c3.date_input("Hasta", d1, key=f"{key}_h")
+    if sel == "Custom":
+        d0 = c2.date_input("From", d0, key=f"{key}_d")
+        d1 = c3.date_input("To", d1, key=f"{key}_h")
     else:
-        c2.caption(f"Desde **{d0:%Y-%m-%d}**")
-        c3.caption(f"Hasta **{d1:%Y-%m-%d}**")
+        c2.caption(f"From **{d0:%Y-%m-%d}**")
+        c3.caption(f"To **{d1:%Y-%m-%d}**")
     return pd.Timestamp(d0), pd.Timestamp(d1)
 
 
-ETIQUETAS = {"num": "N.º", "sku": "SKU", "id": "ID", "codigo": "Código", "descripcion": "Descripción",
-             "categoria": "Categoría", "direccion": "Dirección", "telefono": "Teléfono", "dias_vencido": "Días vencido",
-             "id_orden": "Orden", "impuesto_pct": "Impuesto %", "stock_min": "Stock mínimo", "costo_prom": "Costo promedio",
-             "margen_pct": "Margen %", "participacion_pct": "Participación %", "fecha_extracto": "Fecha del extracto",
-             "saldo_extracto": "Saldo del extracto", "ingreso_bruto": "Ingreso bruto", "precio_unit": "Precio unitario",
-             "costo_unit": "Costo unitario", "aplica_tipo": "Aplica a", "aplica_id": "Documento", "id_cliente": "ID cliente",
-             "id_proveedor": "ID proveedor", "resale_cert": "Cert. reventa", "exento_impuesto": "Exento", "zip": "ZIP",
-             "es_1099": "1099", "metodo": "Método", "cuenta_nombre": "Cuenta", "contrapartida_nombre": "Contraparte"}
+ETIQUETAS = {
+    "num": "No.", "sku": "SKU", "id": "ID", "codigo": "Code", "nombre": "Name", "fecha": "Date",
+    "descripcion": "Description", "categoria": "Category", "direccion": "Address", "telefono": "Phone",
+    "ciudad": "City", "estado": "Status", "estado_us": "State", "zip": "ZIP", "tipo": "Type", "subtipo": "Subtype",
+    "activo": "Active", "activa": "Active", "notas": "Notes", "cliente": "Customer", "proveedor": "Vendor",
+    "canal": "Channel", "cantidad": "Qty", "costo": "Cost", "precio": "Price", "stock": "Stock",
+    "monto": "Amount", "total": "Total", "pagado": "Paid", "saldo": "Balance", "vence": "Due",
+    "terminos": "Terms", "memo": "Memo", "tercero": "Payee", "origen": "Source", "ref": "Ref",
+    "debito": "Debit", "credito": "Credit", "cuenta": "Account", "contrapartida": "Offset account",
+    "comisiones": "Referral fees", "tarifas": "Fulfillment fees", "envio": "Shipping", "motivo": "Reason",
+    "impuesto": "Sales tax", "palabra": "Keyword", "asiento": "Entry", "existencias": "On hand",
+    "valor": "Value", "unidades": "Units", "ingresos": "Revenue", "cargos": "Fees", "margen": "Margin",
+    "socio": "Partner", "seccion": "Section", "concepto": "Item", "mes": "Month", "usuario": "User",
+    "accion": "Action", "hoja": "Sheet", "clave": "Key", "detalle": "Detail", "valor_config": "Value",
+    "dias_vencido": "Days overdue", "id_orden": "Order", "impuesto_pct": "Tax %",
+    "stock_min": "Min. stock", "costo_prom": "Avg. cost", "margen_pct": "Margin %",
+    "participacion_pct": "Ownership %", "fecha_extracto": "Statement date",
+    "saldo_extracto": "Statement balance", "ingreso_bruto": "Gross revenue", "precio_unit": "Unit price",
+    "costo_unit": "Unit cost", "aplica_tipo": "Applies to", "aplica_id": "Document",
+    "id_cliente": "Customer ID", "id_proveedor": "Vendor ID", "resale_cert": "Resale cert.",
+    "exento_impuesto": "Tax exempt", "es_1099": "1099", "metodo": "Method", "cuenta_nombre": "Account",
+    "contrapartida_nombre": "Offset", "cuenta_gasto": "Expense account", "cuenta_pago": "Paid from",
+    "cuenta_cobro": "Deposit to", "impuesto_cobrado": "Sales tax collected", "fecha_hora": "Timestamp",
+    "apertura_qty": "Opening qty", "apertura_costo": "Opening cost", "capital_inicial": "Opening capital",
+    "aportes": "Contributions", "utilidad_asignada": "Allocated profit", "retiros": "Draws",
+    "capital_final": "Ending capital", "ventas_brutas": "Gross sales",
+    "ventas_marketplace": "Marketplace sales", "ventas_directas": "Direct sales",
+    "ventas_facturas_gravables": "Taxable invoice sales", "ventas_facturas_exentas": "Exempt invoice sales",
+    "impuesto_pagado": "Tax remitted", "saldo_deudor": "Debit balance", "saldo_acreedor": "Credit balance",
+    "utilidad": "Profit", "gastos": "Expenses", "existencias_min": "Min. stock",
+}
 
 
 def etiqueta(col: str) -> str:
@@ -143,11 +166,11 @@ def catalogo(hoja: str, campos: list[tuple], key: str, d: dict, etiqueta: str, c
     from ..config import CLAVES
     df = d[hoja]
     ck = CLAVES[hoja]
-    nuevo = f"(nuevo {etiqueta})"
+    nuevo = f"(new {etiqueta})"
     ids = df[ck].astype(str).tolist()
     nombres = {r[ck]: f"{r[columna_nombre]} ({r[ck]})" if ck != columna_nombre else str(r[ck])
                for _, r in df.iterrows()}
-    sel = st.selectbox(f"Editar o crear {etiqueta}", [nuevo] + ids,
+    sel = st.selectbox(f"Edit or create {etiqueta}", [nuevo] + ids,
                        format_func=lambda v: v if v == nuevo else nombres.get(v, v), key=f"{key}_sel")
     rec = df[df[ck].astype(str) == sel].iloc[0] if sel != nuevo else None
     with st.form(f"{key}_form_{sel}"):
@@ -166,17 +189,17 @@ def catalogo(hoja: str, campos: list[tuple], key: str, d: dict, etiqueta: str, c
                 valores[col] = w.selectbox(lab, opts, index=opts.index(actual) if actual in opts else 0)
             else:
                 valores[col] = w.text_input(lab, value=str(actual), disabled=(col == ck and rec is not None))
-        ok = st.form_submit_button("Guardar", type="primary")
+        ok = st.form_submit_button("Save", type="primary")
     if ok:
         datos = {k: ("SI" if v is True else "NO" if v is False else v) for k, v in valores.items()}
         if not str(datos.get(columna_nombre, "")).strip():
-            st.error("El nombre es obligatorio.")
+            st.error("The name is required.")
         elif rec is None:
             if hoja == "Productos" and (not str(datos["sku"]).strip() or str(datos["sku"]).strip() in ids):
-                st.error("El SKU es obligatorio y no puede repetirse.")
-            elif intentar(db.guardar, hoja, datos, ok=f"{etiqueta.capitalize()} guardado."):
+                st.error("The SKU is required and cannot be repeated.")
+            elif intentar(db.guardar, hoja, datos, ok=f"{etiqueta.capitalize()} saved."):
                 st.rerun()
         else:
             datos.pop(ck, None)
-            if intentar(db.modificar, hoja, sel, datos, ok=f"{etiqueta.capitalize()} actualizado."):
+            if intentar(db.modificar, hoja, sel, datos, ok=f"{etiqueta.capitalize()} updated."):
                 st.rerun()

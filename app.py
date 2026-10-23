@@ -22,16 +22,16 @@ from vusax.vistas.ventas import ventas
 
 def pantalla_config_faltante() -> None:
     st.title("VUSAX LLC")
-    st.error("Falta configurar las credenciales (secrets).")
+    st.error("Credentials (secrets) are not configured.")
     st.markdown(
-        "La app necesita la cuenta de servicio de Google (`gcp_service_account`) y, en `[app]`, "
-        "`sheet_url` y `signup_code`. Configúralos en Streamlit Cloud (Settings > Secrets) o en "
-        "`.streamlit/secrets.toml` si pruebas en tu computadora."
+        "The app needs the Google service account (`gcp_service_account`) and, under `[app]`, "
+        "`sheet_url` and `signup_code`. Set them in Streamlit Cloud (Settings > Secrets) or in "
+        "`.streamlit/secrets.toml` when running on your computer."
     )
 
 
 def main() -> None:
-    st.set_page_config(page_title="VUSAX LLC Contabilidad", page_icon=":material/account_balance:", layout="wide")
+    st.set_page_config(page_title="VUSAX LLC Accounting", page_icon=":material/account_balance:", layout="wide")
     if not db.configurado():
         pantalla_config_faltante()
         return
@@ -39,43 +39,43 @@ def main() -> None:
         db.backend()
     except Exception as e:
         st.title("VUSAX LLC")
-        st.error("No pude conectarme a la base de datos de Google Sheets.")
-        st.caption(f"Detalle técnico: {e}")
-        st.markdown("Revisa que la hoja esté compartida con el correo de la cuenta de servicio (permiso de editor) "
-                    "y que `sheet_url` en los secrets sea correcto.")
+        st.error("I could not connect to the Google Sheets database.")
+        st.caption(f"Technical detail: {e}")
+        st.markdown("Check that the spreadsheet is shared with the service account email (editor permission) "
+                    "and that `sheet_url` in the secrets is correct.")
         return
     auth.sembrar_demo()
 
     if not auth.sesion_vigente():
         if st.session_state.pop("aviso", None):
-            st.warning("Tu sesión se cerró por inactividad. Vuelve a entrar.")
+            st.warning("Your session timed out. Please sign in again.")
         auth.pantalla_acceso()
         return
 
     user = st.session_state.user
     paginas = {
-        "": [st.Page(panel, title="Panel", icon=":material/dashboard:", url_path="panel", default=True)],
-        "Operación": [
-            st.Page(ventas, title="Ventas", icon=":material/point_of_sale:", url_path="ventas"),
-            st.Page(gastos, title="Gastos y compras", icon=":material/receipt_long:", url_path="gastos"),
-            st.Page(banco, title="Banco", icon=":material/account_balance:", url_path="banco"),
-            st.Page(inventario, title="Inventario", icon=":material/inventory_2:", url_path="inventario"),
+        "": [st.Page(panel, title="Dashboard", icon=":material/dashboard:", url_path="panel", default=True)],
+        "Operations": [
+            st.Page(ventas, title="Sales", icon=":material/point_of_sale:", url_path="ventas"),
+            st.Page(gastos, title="Expenses & Purchases", icon=":material/receipt_long:", url_path="gastos"),
+            st.Page(banco, title="Banking", icon=":material/account_balance:", url_path="banco"),
+            st.Page(inventario, title="Inventory", icon=":material/inventory_2:", url_path="inventario"),
         ],
-        "Contabilidad": [
-            st.Page(reportes, title="Reportes", icon=":material/monitoring:", url_path="reportes"),
-            st.Page(contabilidad, title="Contabilidad", icon=":material/menu_book:", url_path="contabilidad"),
+        "Accounting": [
+            st.Page(reportes, title="Reports", icon=":material/monitoring:", url_path="reportes"),
+            st.Page(contabilidad, title="Accounting", icon=":material/menu_book:", url_path="contabilidad"),
         ],
     }
     if user["rol"] == "admin":
-        paginas["Administración"] = [st.Page(ajustes, title="Ajustes", icon=":material/settings:", url_path="ajustes")]
+        paginas["Administration"] = [st.Page(ajustes, title="Settings", icon=":material/settings:", url_path="ajustes")]
     nav = st.navigation(paginas)
 
     with st.sidebar:
         st.caption(f"{user.get('nombre') or user['codigo']} · {user['rol']}")
-        if st.button("Actualizar datos", icon=":material/refresh:"):
+        if st.button("Refresh data", icon=":material/refresh:"):
             db.refrescar()
             st.rerun()
-        if st.button("Cerrar sesión", icon=":material/logout:"):
+        if st.button("Sign out", icon=":material/logout:"):
             del st.session_state["user"]
             st.rerun()
     nav.run()

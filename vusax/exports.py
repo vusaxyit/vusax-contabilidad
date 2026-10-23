@@ -3,8 +3,13 @@
 from __future__ import annotations
 
 import io
+from pathlib import Path
 
 import pandas as pd
+
+# Logo de la empresa. Si el archivo no esta, el PDF sale solo con el nombre en texto.
+LOGO = Path(__file__).resolve().parent / "assets" / "logo.png"
+LOGO_MM = 25  # ancho del logo en el PDF
 
 
 def a_excel(hojas: dict[str, pd.DataFrame]) -> bytes:
@@ -40,20 +45,33 @@ def factura_pdf(cfg: dict, enc: dict, cliente: dict, items: pd.DataFrame, pagos:
     pdf = FPDF(format="Letter")
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
+
+    # Encabezado: logo a la izquierda y los datos de la empresa al lado.
+    y0 = pdf.get_y()
+    izq = pdf.l_margin
+    con_logo = LOGO.exists()
+    if con_logo:
+        pdf.image(str(LOGO), x=izq, y=y0, w=LOGO_MM)
+        izq = pdf.l_margin + LOGO_MM + 5
+    pdf.set_xy(izq, y0)
     pdf.set_font("Helvetica", "B", 20)
     pdf.cell(0, 10, _t(cfg.get("empresa", "VUSAX LLC")), new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 10)
     for linea in (cfg.get("direccion_empresa", ""), cfg.get("email_empresa", "")):
         if linea:
+            pdf.set_x(izq)
             pdf.cell(0, 5, _t(linea), new_x="LMARGIN", new_y="NEXT")
+    if con_logo:  # que el texto que sigue nunca quede encima del logo
+        pdf.set_y(max(pdf.get_y(), y0 + LOGO_MM))
+
     pdf.ln(4)
     pdf.set_font("Helvetica", "B", 14)
-    pdf.cell(0, 8, _t(f"FACTURA {enc['num']}"), new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 8, _t(f"INVOICE {enc['num']}"), new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 10)
-    pdf.cell(0, 5, _t(f"Fecha: {enc['fecha']}     Vence: {enc['vence']}"), new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 5, _t(f"Date: {enc['fecha']}     Due: {enc['vence']}"), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(3)
     pdf.set_font("Helvetica", "B", 10)
-    pdf.cell(0, 5, "Facturar a:", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 5, "Bill To:", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 10)
     for linea in (cliente.get("nombre", enc.get("cliente", "")), cliente.get("direccion", ""),
                   " ".join(x for x in (cliente.get("ciudad", ""), cliente.get("estado", ""), cliente.get("zip", "")) if x),
@@ -65,7 +83,7 @@ def factura_pdf(cfg: dict, enc: dict, cliente: dict, items: pd.DataFrame, pagos:
     anchos = (22, 88, 20, 30, 30)
     pdf.set_fill_color(235, 235, 235)
     pdf.set_font("Helvetica", "B", 9)
-    for t, w in zip(("SKU", "Descripcion", "Cant.", "Precio", "Importe"), anchos):
+    for t, w in zip(("SKU", "Description", "Qty", "Price", "Amount"), anchos):
         pdf.cell(w, 7, t, border=1, fill=True, align="C")
     pdf.ln()
     pdf.set_font("Helvetica", "", 9)
@@ -82,8 +100,8 @@ def factura_pdf(cfg: dict, enc: dict, cliente: dict, items: pd.DataFrame, pagos:
     imp_total = float(enc.get("impuesto", 0.0))
     total = round(sub + imp_total, 2)
     pdf.ln(2)
-    for etiqueta, valor, negrita in (("Subtotal", sub, False), (f"Impuesto de ventas ({enc.get('impuesto_pct', 0):g}%)", imp_total, False),
-                                     ("Total", total, True), ("Pagado", pagos, False), ("Saldo", total - pagos, True)):
+    for etiqueta, valor, negrita in (("Subtotal", sub, False), (f"Sales Tax ({enc.get('impuesto_pct', 0):g}%)", imp_total, False),
+                                     ("Total", total, True), ("Paid", pagos, False), ("Balance Due", total - pagos, True)):
         pdf.set_font("Helvetica", "B" if negrita else "", 10)
         pdf.cell(sum(anchos[:4]), 6, _t(etiqueta), align="R")
         pdf.cell(anchos[4], 6, f"${valor:,.2f}", align="R")
@@ -91,5 +109,5 @@ def factura_pdf(cfg: dict, enc: dict, cliente: dict, items: pd.DataFrame, pagos:
     if enc.get("notas"):
         pdf.ln(5)
         pdf.set_font("Helvetica", "", 9)
-        pdf.multi_cell(0, 5, _t(f"Notas: {enc['notas']}"))
+        pdf.multi_cell(0, 5, _t(f"Notes: {enc['notas']}"))
     return bytes(pdf.output())
